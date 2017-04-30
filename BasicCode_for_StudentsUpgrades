@@ -1,0 +1,123 @@
+#include <Servo.h>
+// new ficher: debouncing for buttons
+
+const int potpin[6] = {0,1,2,3,4,5};    // Analog pins for the 4 potentiometers(1-5) + record potentiometer(0).
+const int plus = 700;
+const int plus2 = 900;
+const int minus = 300;
+const int minus2 = 100;
+const int debounceDelay = 50;
+
+Servo myservo[6];                                 // according to PWM pins.
+float angel[6] = {90, 90, 90, 90, 90, 90};    // shouler axis is on 4 & 5    |    pliers on pin 0
+boolean lastbuttonState[2] = {0, 0};
+boolean buttonState[2] = {0, 0};
+boolean plaier = 0;
+bool ledState = 0;
+int lastDebounceTime[2];
+
+
+void setup()
+{
+myservo[0].attach(3);     // Plaier
+myservo[1].attach(5);     // Elbow
+myservo[2].attach(6);     // Base
+myservo[3].attach(10);    // Shoulder A
+myservo[4].attach(9);     // Shoulder B
+
+Serial.begin(115200);
+pinMode(2, INPUT_PULLUP);
+pinMode(4, INPUT_PULLUP);
+pinMode(13, OUTPUT);
+}
+
+void loop()
+{ 
+   ReadAndMoveServos();
+   Plaier();
+   Light();  
+   Serial.print("0:  ");   Serial.print(angel[0]);
+   Serial.print("    1:  ");   Serial.print(angel[1]);
+   Serial.print("    2:  ");   Serial.print(angel[2]);
+   Serial.print("    3:  ");   Serial.print(angel[3]);
+   Serial.print("    4:  ");   Serial.print(angel[4]);
+   Serial.print("    open/close:  ");   Serial.println(angel[1]);
+   for (int i=0;i<5;i++)               // Send all the servos to the new angel.
+      myservo[i].write(int(angel[i]));
+   delay(10);
+}
+
+
+void ReadAndMoveServos()            // Read all the joystics and Set new angels for each.
+  {
+    int tmp;
+
+    for (int i=1;i<4;i++)
+      {
+        tmp = analogRead(potpin[i]);
+        if ((tmp>plus)&&(angel[i]<179))
+           if (tmp>plus2)
+              angel[i]++;
+           else
+              angel[i] += 0.5 ;
+         else if ((tmp<minus)&&(angel[i]>0))
+           if (tmp<minus2)
+              angel[i]--;
+           else
+              angel[i]-= 0.5;  
+      }
+    angel[5] = 179-angel[4];  
+  }
+  
+  
+void Plaier()              // Open or Close Plaier when button 2 pressed.
+{
+    bool reading = 0;
+    
+    reading = digitalRead(2);
+    if (reading != lastbuttonState[1]) 
+       {
+         lastDebounceTime[1] = millis();
+         lastbuttonState[1] = reading;
+       }
+   if ((millis() - lastDebounceTime[1]) > debounceDelay)
+         {
+            if (buttonState[1] != lastbuttonState[1]) 
+              {  
+                buttonState[1] = lastbuttonState[1];
+                if (buttonState[1] == HIGH)
+                {
+                  plaier = !plaier;
+                  if (!plaier)
+                    angel[1] = 90;
+                  else
+                    angel[1] = 170;
+                }
+              }
+         }     
+}
+
+
+void Light()            // Activate or disable light when button 4 pressed.
+{
+    bool reading = 0;
+    
+    reading = digitalRead(4);
+    if (reading != lastbuttonState[0]) 
+       {
+         lastDebounceTime[0] = millis();
+         lastbuttonState[0] = reading;
+       }
+   if ((millis() - lastDebounceTime[0]) > debounceDelay)
+         {
+            if (buttonState[0] != lastbuttonState[0]) 
+              {  
+                buttonState[0] = lastbuttonState[0];
+                if (buttonState[0] == HIGH)
+                {
+                  ledState = !ledState;
+                  digitalWrite(13, ledState);
+                }
+              }
+         }     
+}
